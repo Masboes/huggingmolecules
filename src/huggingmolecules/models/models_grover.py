@@ -46,6 +46,7 @@ class GroverModel(PretrainedModelBase[GroverBatchEncoding, GroverConfig]):
 
         self.grover = GroverEncoderWrapper(config)
 
+        #print("self.hidde_size:", self.hidden_size)
         if config.readout_self_attention:
             self.readout = Readout(rtype="self_attention", hidden_size=self.hidden_size,
                                    attn_hidden=config.readout_attn_hidden,
@@ -63,6 +64,7 @@ class GroverModel(PretrainedModelBase[GroverBatchEncoding, GroverConfig]):
         Creates the feed-forward network for the model.
         """
 
+        #print("Booba, respectfully")
         if config.ffn_features_only:
             first_linear_dim = config.features_size + config.ffn_d_generated_features
         else:
@@ -106,16 +108,21 @@ class GroverModel(PretrainedModelBase[GroverBatchEncoding, GroverConfig]):
         _, _, _, _, _, a_scope, _, _ = batch.get_components()
 
         output = self.grover(batch)
+        #print(output["atom_from_bond"].size(), output["atom_from_atom"].size())
         mol_atom_from_bond_output = self.readout(output["atom_from_bond"], a_scope)
         mol_atom_from_atom_output = self.readout(output["atom_from_atom"], a_scope)
 
+        #print(mol_atom_from_bond_output.size(), mol_atom_from_atom_output.size())
         if batch.generated_features is not None:
             mol_atom_from_atom_output = torch.cat([mol_atom_from_atom_output, batch.generated_features], 1)
             mol_atom_from_bond_output = torch.cat([mol_atom_from_bond_output, batch.generated_features], 1)
 
-        atom_ffn_output = self.mol_atom_from_atom_ffn(mol_atom_from_atom_output)
-        bond_ffn_output = self.mol_atom_from_bond_ffn(mol_atom_from_bond_output)
-        return atom_ffn_output, bond_ffn_output
+        #print(mol_atom_from_bond_output.size(), mol_atom_from_atom_output.size())
+        
+        #print(mol_atom_from_bond_output, mol_atom_from_atom_output)
+        #atom_ffn_output = self.mol_atom_from_atom_ffn(mol_atom_from_atom_output)
+        #bond_ffn_output = self.mol_atom_from_bond_ffn(mol_atom_from_bond_output)
+        return mol_atom_from_bond_output, mol_atom_from_atom_output
 
 
 class GroverEncoderWrapper(nn.Module):
@@ -134,6 +141,7 @@ class GroverEncoderWrapper(nn.Module):
             config.backbone = "gtrans"
         if config.backbone == "gtrans" or config.backbone == "dualtrans":
             # dualtrans is the old name.
+            #print("Grover Encoder hidden size:", config.d_model)
             self.encoders = GroverEncoder(config,
                                           hidden_size=config.d_model,
                                           edge_fdim=edge_dim,
